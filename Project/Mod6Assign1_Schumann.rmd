@@ -1,0 +1,170 @@
+---
+output:
+  word_document: default
+  html_document: default
+---
+# Assignment 1
+## Katherine Schumann
+### Clustering
+
+```{r, include = FALSE}
+library(tidyverse)
+library(tidymodels)
+#library(cluster) #algorithms for clustering
+```
+
+```{r}
+trucks = read_csv("trucks.csv")
+str(trucks)
+summary(trucks)
+```
+
+### Task 1
+
+```{r}
+ggplot(trucks, aes(Distance, Speeding))+
+  geom_point()
+```
+Yes, there does seem to be a natural devide between speeding and distance, and there is a tighter cluster towards the bottom and a looser cluster towards the top of the speeding.
+
+### Task 2
+```{r}
+kmeans_recipe = recipe(~ Distance + Speeding, trucks) 
+
+truck_step1 = kmeans_recipe %>% 
+  step_scale(all_numeric()) %>%
+  step_center(all_numeric()) 
+
+truck_step1 = prep(truck_step1, trucks) #prepares the recipe
+
+truck_cleaned = bake(truck_step1, trucks) #applies the recipe and yields a data frame
+```
+
+
+### Task 3
+```{r}
+set.seed(64)
+clusts = 
+  tibble(k = 1:2) %>%
+  mutate(
+    kclust = map(k, ~kmeans(truck_cleaned, .x)),
+    tidied = map(kclust, tidy),
+    glanced = map(kclust, glance),
+    augmented = map(kclust, augment, truck_cleaned)
+  )
+
+clusts
+```
+
+
+```{r}
+clusters = 
+  clusts %>%
+  unnest(cols = c(tidied))
+
+assignments = 
+  clusts %>% 
+  unnest(cols = c(augmented))
+
+clusterings = 
+  clusts %>%
+  unnest(cols = c(glanced))
+```
+
+```{r}
+p1 = 
+  ggplot(assignments, aes(x = Distance, y = Speeding)) +
+  geom_point(aes(color = .cluster), alpha = 0.8)
+p1
+```
+The clusters depicted above are the closest cluters and I can agree with the spilt between these two groups are clear and decisive.
+
+### Task 4
+
+```{r}
+set.seed(412)
+clusts1 = 
+  tibble(k = 1:8) %>%
+  mutate(
+    kclust = map(k, ~kmeans(truck_cleaned, .x)),
+    tidied = map(kclust, tidy),
+    glanced = map(kclust, glance),
+    augmented = map(kclust, augment, truck_cleaned)
+  )
+
+clusts1
+```
+
+
+```{r}
+clusters1 = 
+  clusts1 %>%
+  unnest(cols = c(tidied))
+
+assignments1 = 
+  clusts1 %>% 
+  unnest(cols = c(augmented))
+
+clusterings1 = 
+  clusts1 %>%
+  unnest(cols = c(glanced))
+```
+
+```{r}
+p2 = 
+  ggplot(assignments1, aes(x = Distance, y = Speeding)) +
+  geom_point(aes(color = .cluster), alpha = 0.8)
+p2
+```
+I would say the first graph because some of the clusters at the bottom of the graph with the smaller distances are very close and almost indistinguishable. 
+
+### Task 5
+
+```{r}
+ggplot(clusterings1, aes(k, tot.withinss)) +
+  geom_line() +
+  geom_point()
+```
+
+Four appears to be the best, because that is the bend in the elbow, also I think that seems like it would fit the data in a better manner. 
+
+### Task 6
+
+```{r}
+set.seed(64)
+clusts3 = 
+  tibble(k = 1:4) %>%
+  mutate(
+    kclust = map(k, ~kmeans(truck_cleaned, .x)),
+    tidied = map(kclust, tidy),
+    glanced = map(kclust, glance),
+    augmented = map(kclust, augment, truck_cleaned)
+  )
+
+clusts3
+```
+
+
+```{r}
+clusters3 = 
+  clusts3 %>%
+  unnest(cols = c(tidied))
+
+assignments3 = 
+  clusts3 %>% 
+  unnest(cols = c(augmented))
+
+clusterings3 = 
+  clusts3 %>%
+  unnest(cols = c(glanced))
+```
+
+```{r}
+p3 = 
+  ggplot(assignments3, aes(x = Distance, y = Speeding)) +
+  geom_point(aes(color = .cluster), alpha = 0.8)
+p3
+```
+
+Tha is what I anticipated, I believe that this is the best fit for the data, it is a bit more scattered for high distance and high speeding but it is still clustered more than the dense group at the lower end of speeding. 
+

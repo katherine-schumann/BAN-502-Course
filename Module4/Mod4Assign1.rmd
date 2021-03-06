@@ -1,0 +1,301 @@
+---
+output:
+  word_document: default
+  html_document: default
+---
+# Module 4 Assignment 1
+## Katherine Schumann
+### Classification Trees
+
+```{r,include = FALSE}
+library(tidyverse)
+library(tidymodels)
+library(mice) #package for imputation
+library(VIM) #visualizing missingness
+library(rpart) #for classification trees
+library(rpart.plot) #for plotting trees
+library(RColorBrewer) #better visualization of classification trees
+library(rattle) #better visualization of classification trees
+library(caret)
+```
+
+
+```{r}
+parole <- read_csv("parole.csv")
+```
+
+```{r}
+parole = parole %>% mutate(male = as_factor(male)) %>% mutate(male = fct_recode(male, "Male" = "1", "Female" = "0"))
+
+
+parole = parole%>% mutate(race = as_factor(race))%>% mutate(race = fct_recode(race, "White" = "1", "Other" = "2"))
+
+parole = parole%>% mutate(state = as_factor(state))%>% mutate(state = fct_recode(state, "Other" = "1", "Kentucky" = "2", "Louisiana" = "3", "Virginia" = "4"))
+
+parole = parole%>% mutate(multiple.offenses = as_factor(multiple.offenses)) %>% mutate(multiple.offenses = fct_recode(multiple.offenses, "Yes" = "1", "No" = "0"))
+
+parole = parole%>% mutate(crime = as_factor(crime)) %>% mutate(crime = fct_recode(crime, "Other" = "1", "Larceny" = "2", "Drug-related" = "3", "Driving-related" = "4"))
+
+parole = parole %>% mutate(violator = as.character.numeric_version(violator)) %>% mutate(violator = fct_recode(violator, "Yes" = "1", "No" = "0"))
+
+```
+
+### Task 1
+Split the data (training and testing)  
+```{r}
+set.seed(12345)
+parole_split = initial_split(parole, prop = 0.7, strata = violator) #70% in training
+train = training(parole_split)
+test = testing(parole_split)
+```
+
+### Task 2
+
+
+Create regression tree  
+```{r}
+parole_recipe = recipe(violator ~., train)
+
+tree_model = decision_tree() %>% 
+  set_engine("rpart", model = TRUE) %>% #don't forget the model = TRUE flag
+  set_mode("classification") #notice different mode here for a regression tree
+
+parole_wflow = 
+  workflow() %>% 
+  add_model(tree_model) %>% 
+  add_recipe(parole_recipe)
+
+parole_fit = fit(parole_wflow, train)
+```
+
+Plot the tree  
+```{r}
+tree = parole_fit %>% 
+  pull_workflow_fit() %>% 
+  pluck("fit")
+
+fancyRpartPlot(tree, tweak=1.25)
+```
+
+
+### Task 3
+First the state he is from is not Kentucky, Virginia, or Other, so I would go to the no decision. Then the parolee has committed multiple offenses so I would select no classification. With time served over 5 years so I would select the No which has a probability of 88% of not violating the parole. Which means we would classify this parolee as not violating parole.
+
+```{r}
+parole_fit$fit$fit$fit$cptable
+```
+Since the classification tree that R used has 10 splits we can see that this has one of the higher xerrors from the above cp table, the optimal cp value is .052 which has an xerror of 1, but a nsplit of 0 meaning no splits or a naive model.
+### Task 4
+
+Create our folds  
+```{r}
+set.seed(123)
+folds = vfold_cv(train, v = 5)
+```
+
+
+```{r}
+parole_recipe1 = recipe(violator ~., train)
+tree_model = decision_tree(cost_complexity = tune()) %>% 
+  set_engine("rpart", model = TRUE) %>% #don't forget the model = TRUE flag
+  set_mode("classification") #notice different mode here for a regression tree
+
+tree_grid = grid_regular(cost_complexity(),
+                          levels = 25) #try 25 sensible values for cp
+parole_wflow = 
+  workflow() %>% 
+  add_model(tree_model) %>% 
+  add_recipe(parole_recipe1)
+
+tree_res = 
+  parole_wflow %>% 
+  tune_grid(
+    resamples = folds,
+    grid = tree_grid
+    )
+
+tree_res
+```
+
+
+```{r}
+tree_res %>%
+  collect_metrics() %>%
+  ggplot(aes(cost_complexity, mean)) +
+  geom_line(size = 1.5, alpha = 0.6) +
+  geom_point(size = 2) +
+  facet_wrap(~ .metric, scales = "free", nrow = 2) 
+```
+### Task 6
+
+```{r}
+best_tree = tree_res %>%
+  select_best("accuracy")
+
+best_tree
+```
+
+The best tree yeilds a cp optimal accurate value is .1.
+
+### Task 7
+
+```{r}
+final_wf = 
+  parole_wflow %>% 
+  finalize_workflow(best_tree)
+```
+
+```{r}
+final_fit = fit(final_wf, train)
+
+tree = final_fit %>% 
+  pull_workflow_fit() %>% 
+  pluck("fit")
+
+#fancyRpartPlot(tree, tweak = 1.5) 
+
+```
+
+### Task 8
+```{r}
+treepred = predict(final_fit, train, type = "class")
+head(treepred)
+```
+
+Caret confusion matrix and accuracy, etc. calcs  
+```{r}
+confusionMatrix(treepred$.pred_class,train$violator,positive="Yes") #predictions first then actual
+```
+Since the optimal accuracy value is the naive model we can use either the accuracy of 88.37% or the no information rate. 
+
+
+### Task 9
+
+
+```{r}
+Blood <- read_csv("Blood.csv")
+```
+
+```{r}
+Blood = Blood %>% mutate(DonatedMarch = as_factor(DonatedMarch)) %>% mutate(DonatedMarch = fct_recode(DonatedMarch, "No" = "0", "Yes" = "1"))
+```
+### Task 10
+
+
+Split the data (training2 and testing2)  
+```{r}
+set.seed(1234)
+Blood_split = initial_split(Blood, prop = 0.7, strata = DonatedMarch) #70% in training
+train2 = training(Blood_split)
+test2 = testing(Blood_split)
+```
+
+
+Create our folds  
+```{r}
+set.seed(1234)
+folds2 = vfold_cv(train2, v = 5)
+```
+
+
+```{r}
+Blood_recipe = recipe(DonatedMarch ~., train2) %>%
+  step_dummy(all_nominal(),-all_outcomes())
+
+tree1_model = decision_tree(cost_complexity = tune()) %>% 
+  set_engine("rpart", model = TRUE) %>% #don't forget the model = TRUE flag
+  set_mode("classification") #notice different mode here for a regression tree
+
+tree1_grid = grid_regular(cost_complexity(),
+                          levels = 25) #try 25 sensible values for cp
+Blood_wflow = 
+  workflow() %>% 
+  add_model(tree1_model) %>% 
+  add_recipe(Blood_recipe)
+
+tree1_res = 
+  Blood_wflow %>% 
+  tune_grid(
+    resamples = folds2,
+    grid = tree1_grid
+    )
+
+tree1_res
+```
+```{r}
+tree1_res %>%
+  collect_metrics() %>%
+  ggplot(aes(cost_complexity, mean)) +
+  geom_line(size = 1.5, alpha = 0.6) +
+  geom_point(size = 2) +
+  facet_wrap(~ .metric, scales = "free", nrow = 2) 
+```
+The CP hits a optimal around approx .017 then it starts to go down and balance out.
+
+
+```{r}
+best_tree1 = tree1_res %>%
+  select_best("accuracy")
+
+best_tree1
+```
+
+### Task 11
+
+```{r}
+final1_wf = 
+  Blood_wflow %>% 
+  finalize_workflow(best_tree1)
+```
+
+```{r}
+final1_fit = fit(final1_wf, train2)
+
+tree1 = final1_fit %>% 
+  pull_workflow_fit() %>% 
+  pluck("fit")
+
+fancyRpartPlot(tree1, tweak = 1.5) 
+
+```
+### Task 12
+
+Predictions on training set  
+```{r}
+tree1pred = predict(final1_fit, train2, type = "class")
+head(tree1pred)
+```
+
+Caret confusion matrix and accuracy, etc. calcs  
+```{r}
+confusionMatrix(tree1pred$.pred_class,train2$DonatedMarch,positive="Yes") #predictions first then actual
+```
+
+Predictions on testing set  
+```{r}
+tree1pred_test = predict(final1_fit, test2, type = "class")
+head(tree1pred_test)
+```
+
+Caret confusion matrix and accuracy, etc. calcs  
+```{r}
+confusionMatrix(tree1pred_test$.pred_class,test2$DonatedMarch,positive="Yes") #predictions first then actual
+```
+
+The model did exceptionally well on the training set with an accuracy of 80.53% with a p-value of 0.009, and a naive model of 76.15%. However, the model did not do so well on the testing set, where the accuracy was at 78.12% and the naive model of 76.34% with a p-value of .29 meaning that the difference from the model to the naive model was insignificant. It did yeild a two percent increase in accuracy but not quite enough to make it a significantly better predictor.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

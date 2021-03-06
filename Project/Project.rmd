@@ -1,0 +1,283 @@
+---
+output:
+  word_document: default
+  html_document: default
+---
+# Project Part 1
+## Katherine Schumann
+
+
+```{r, include = FALSE}
+library(tidyverse)
+library(tidymodels)
+library(mice) #package for imputation
+library(VIM) #visualizing missingness
+library(ranger) #for random forests
+library(randomForest) #also for random forests
+library(caret)
+library(skimr)
+library(GGally)
+library(gridExtra)
+library(vip) #variable importance
+```
+
+```{r Data Set}
+ames_student <- read_csv("C:/Users/kathe/OneDrive/Desktop/Ban 502/Project/ames_student.csv")
+
+str(ames_student)
+```
+
+
+```{r}
+ames_clean = ames_student %>% mutate_at(vars(MS_SubClass:Above_Median), funs(as_factor)) %>%
+mutate(MS_SubClass = as_factor(MS_SubClass)) %>%
+mutate(MS_Zoning = as_factor(MS_Zoning))%>%
+mutate(Street = as_factor(Street))%>%
+mutate(Alley = as_factor(Alley))%>%
+mutate(Lot_Shape = as_factor(Lot_Shape))%>%
+mutate(Land_Contour = as_factor(Land_Contour))%>%
+  mutate(Utilities = as_factor(Utilities))%>%
+  mutate(Land_Slope = as_factor(Land_Slope))%>%
+  mutate(Neighborhood = as_factor(Neighborhood))%>%
+  mutate(Condition_1 = as_factor(Condition_1))%>%
+  mutate(Condition_2 = as_factor(Condition_2))%>%
+  mutate(Bldg_Type = as_factor(Bldg_Type))%>%
+  mutate(House_Style = as_factor(House_Style))%>%
+  mutate(Overall_Qual = as_factor(Overall_Qual))%>%
+  mutate(Overall_Cond = as_factor(Overall_Cond))%>%
+  mutate(Roof_Style = as_factor(Roof_Style))%>%
+  mutate(Roof_Matl = as_factor(Roof_Matl))%>%
+  mutate(Exterior_1st = as_factor(Exterior_1st))%>%
+  mutate(Exterior_2nd = as_factor(Exterior_2nd))%>%
+  mutate(Mas_Vnr_Type = as_factor(Mas_Vnr_Type))%>%
+  mutate(Exter_Cond = as_factor(Exter_Cond))%>%
+  mutate(Foundation = as_factor(Foundation))%>%
+  mutate(Bsmt_Qual = as_factor(Bsmt_Qual))%>%
+  mutate(Bsmt_Cond = as_factor(Bsmt_Cond))%>%
+  mutate(BsmtFin_Type_1 = as_factor(MS_Zoning))%>%
+  mutate(BsmtFin_Type_2 = as_factor(BsmtFin_Type_2))%>%
+  mutate(Heating = as_factor(Heating))%>%
+  mutate(Central_Air = as_factor(Central_Air))%>%
+  mutate(ElElectrical = as_factor(Electrical))%>%
+  mutate(Kitchen_Qual = as_factor(Kitchen_Qual))%>%
+  mutate(Functional = as_factor(Functional))%>%
+  mutate(Fireplace_Qu = as_factor(Fireplace_Qu))%>%
+  mutate(Garage_Type = as_factor(Garage_Type))%>%
+  mutate(Garage_Finish = as_factor(Garage_Finish))%>%
+  mutate(Garage_Qual = as_factor(Garage_Qual))%>%
+  mutate(Garage_Cond = as_factor(Garage_Cond))%>%
+  mutate(Paved_Drive = as_factor(Paved_Drive))%>%
+  mutate(Pool_QC = as_factor(Pool_QC))%>%
+  mutate(Misc_Feature = as_factor(Misc_Feature))%>%
+  mutate(Sale_Type = as_factor(Sale_Type))%>%
+  mutate(Sale_Condition = as_factor(Sale_Condition))%>%
+  mutate(Garage_Cars = factor(Garage_Cars, labels = c("0","1","2","3","4","5")))%>%
+mutate(Fireplaces = factor(Fireplaces, labels = c("0","1","2","3","4")))%>%
+mutate(Kitchen_AbvGr = factor(Kitchen_AbvGr, labels = c("1","2","3")))%>%
+  mutate(Bedroom_AbvGr = factor(Bedroom_AbvGr, labels = c("0","1","2","3","4","5","6")))%>%
+  mutate(Half_Bath = factor(Half_Bath, labels = c("0","1","2")))%>%
+  mutate(Full_Bath = factor(Full_Bath, labels = c("0","1","2","3","4")))%>%
+  mutate(Bsmt_Half_Bath = factor(Bsmt_Half_Bath, labels = c("0","1","2")))%>%
+  mutate(Bsmt_Full_Bath = factor(Bsmt_Full_Bath, labels = c("0","1","2","3")))%>%
+     mutate(BsmtFin_SF_1 = factor(BsmtFin_SF_1, labels = c("1","2","3","4","5","6", "7")))
+```
+
+
+```{r}
+skim(ames_clean)
+```
+
+
+Visualization  
+```{r}
+p1 = ggplot(ames_clean, aes(x = MS_SubClass, fill = Above_Median)) + geom_bar(position = "fill")
+p2 = ggplot(ames_clean, aes(x = MS_Zoning, fill = Above_Median)) + geom_bar(position = "fill")
+p3 = ggplot(ames_clean, aes(x = Street, fill = Above_Median)) + geom_bar(position = "fill")
+p4 = ggplot(ames_clean, aes(x = Alley, fill = Above_Median)) + geom_bar(position = "fill")
+grid.arrange(p1,p2,p3,p4)
+```
+
+
+
+```{r}
+p1 = ggplot(ames_clean, aes(x = Lot_Shape, fill = Above_Median)) + geom_bar(position = "fill")
+p2 = ggplot(ames_clean, aes(x = Land_Contour, fill = Above_Median)) + geom_bar(position = "fill")
+p3 = ggplot(ames_clean, aes(x = Utilities, fill = Above_Median)) + geom_bar(position = "fill")
+p4 = ggplot(ames_clean, aes(x = Lot_Config, fill = Above_Median)) + geom_bar(position = "fill")
+grid.arrange(p1,p2,p3,p4)
+```
+
+
+
+```{r}
+p1 = ggplot(ames_clean, aes(x = Land_Slope, fill = Above_Median)) + geom_bar(position = "fill")
+p2 = ggplot(ames_clean, aes(x = Neighborhood, fill = Above_Median)) + geom_bar(position = "fill")
+p3 = ggplot(ames_clean, aes(x = Condition_1, fill = Above_Median)) + geom_bar(position = "fill")
+p4 = ggplot(ames_clean, aes(x = Condition_2, fill = Above_Median)) + geom_bar(position = "fill")
+grid.arrange(p1,p2,p3,p4)
+```
+
+```{r}
+p1 = ggplot(ames_clean, aes(x = Bldg_Type, fill = Above_Median)) + geom_bar(position = "fill")
+p2 = ggplot(ames_clean, aes(x = House_Style, fill = Above_Median)) + geom_bar(position = "fill")
+p3 = ggplot(ames_clean, aes(x = Overall_Qual, fill = Above_Median)) + geom_bar(position = "fill")+theme(axis.text=element_text(size=7))
+p4 = ggplot(ames_clean, aes(x = Overall_Cond, fill = Above_Median)) + geom_bar(position = "fill")+theme(axis.text=element_text(size=7))
+grid.arrange(p1,p2,p3,p4)
+```
+
+```{r}
+p1 = ggplot(ames_clean, aes(x = Roof_Style, fill = Above_Median)) + geom_bar(position = "fill")
+p2 = ggplot(ames_clean, aes(x = Roof_Matl, fill = Above_Median)) + geom_bar(position = "fill")
+p3 = ggplot(ames_clean, aes(x = Exterior_1st, fill = Above_Median)) + geom_bar(position = "fill")
+p4 = ggplot(ames_clean, aes(x = Exterior_2nd, fill = Above_Median)) + geom_bar(position = "fill")
+grid.arrange(p1,p2,p3,p4)
+```
+
+```{r}
+p1 = ggplot(ames_clean, aes(x = Mas_Vnr_Type, fill = Above_Median)) + geom_bar(position = "fill")
+p2 = ggplot(ames_clean, aes(x = Exter_Qual, fill = Above_Median)) + geom_bar(position = "fill")
+p3 = ggplot(ames_clean, aes(x = Exter_Cond, fill = Above_Median)) + geom_bar(position = "fill")
+p4 = ggplot(ames_clean, aes(x = Foundation, fill = Above_Median)) + geom_bar(position = "fill")
+grid.arrange(p1,p2,p3,p4)
+```
+
+```{r}
+p1 = ggplot(ames_clean, aes(x = Bsmt_Qual, fill = Above_Median)) + geom_bar(position = "fill")
+p2 = ggplot(ames_clean, aes(x = Bsmt_Cond, fill = Above_Median)) + geom_bar(position = "fill")
+p3 = ggplot(ames_clean, aes(x = Bsmt_Exposure, fill = Above_Median)) + geom_bar(position = "fill")
+p4 = ggplot(ames_clean, aes(x = BsmtFin_Type_1, fill = Above_Median)) + geom_bar(position = "fill")
+grid.arrange(p1,p2,p3,p4)
+```
+```{r}
+p1 = ggplot(ames_clean, aes(x = BsmtFin_Type_2, fill = Above_Median)) + geom_bar(position = "fill")
+p2 = ggplot(ames_clean, aes(x = Heating, fill = Above_Median)) + geom_bar(position = "fill")
+p3 = ggplot(ames_clean, aes(x = Central_Air, fill = Above_Median)) + geom_bar(position = "fill")
+p4 = ggplot(ames_clean, aes(x = Electrical, fill = Above_Median)) + geom_bar(position = "fill")
+grid.arrange(p1,p2,p3,p4)
+```
+
+```{r}
+p1 = ggplot(ames_clean, aes(x = Kitchen_Qual, fill = Above_Median)) + geom_bar(position = "fill")
+p2 = ggplot(ames_clean, aes(x = Fireplace_Qu, fill = Above_Median)) + geom_bar(position = "fill")
+p3 = ggplot(ames_clean, aes(x = Garage_Type, fill = Above_Median)) + geom_bar(position = "fill")
+p4 = ggplot(ames_clean, aes(x = Garage_Finish, fill = Above_Median)) + geom_bar(position = "fill")
+grid.arrange(p1,p2,p3,p4)
+```
+
+```{r}
+p1 = ggplot(ames_clean, aes(x = Garage_Qual, fill = Above_Median)) + geom_bar(position = "fill")
+p2 = ggplot(ames_clean, aes(x = Garage_Cond, fill = Above_Median)) + geom_bar(position = "fill")
+p3 = ggplot(ames_clean, aes(x = Paved_Drive, fill = Above_Median)) + geom_bar(position = "fill")
+p4 = ggplot(ames_clean, aes(x = Pool_QC, fill = Above_Median)) + geom_bar(position = "fill")
+grid.arrange(p1,p2,p3,p4)
+```
+
+
+
+
+```{r}
+p1 = ggplot(ames_clean, aes(x = Fence, fill = Above_Median)) + geom_bar(position = "fill")
+p2 = ggplot(ames_clean, aes(x = Misc_Feature, fill = Above_Median)) + geom_bar(position = "fill")
+p3 = ggplot(ames_clean, aes(x = Sale_Type, fill = Above_Median)) + geom_bar(position = "fill")
+p4 = ggplot(ames_clean, aes(x = Sale_Condition, fill = Above_Median)) + geom_bar(position = "fill")
+grid.arrange(p1,p2,p3,p4)
+```
+```{r}
+p1 = ggplot(ames_clean, aes(x = Garage_Cars, fill = Above_Median)) + geom_bar(position = "fill")
+p2 = ggplot(ames_clean, aes(x = Fireplaces, fill = Above_Median)) + geom_bar(position = "fill")
+p3 = ggplot(ames_clean, aes(x = Half_Bath, fill = Above_Median)) + geom_bar(position = "fill")
+p4 = ggplot(ames_clean, aes(x = Full_Bath, fill = Above_Median)) + geom_bar(position = "fill")
+grid.arrange(p1,p2,p3,p4)
+```
+
+```{r}
+p1 = ggplot(ames_clean, aes(x = Bsmt_Half_Bath, fill = Above_Median)) + geom_bar(position = "fill")
+p2 = ggplot(ames_clean, aes(x = Bsmt_Full_Bath, fill = Above_Median)) + geom_bar(position = "fill")
+p3 = ggplot(ames_clean, aes(x = BsmtFin_SF_1, fill = Above_Median)) + geom_bar(position = "fill")
+grid.arrange(p1,p2,p3)
+```
+
+
+
+
+
+```{r}
+p1 = ggplot(ames_student, aes(x = Above_Median, y = Lot_Frontage)) + geom_boxplot(aes(fill = Above_Median)) + theme_bw()+geom_jitter(alpha = 0.1)
+p2 = ggplot(ames_student, aes(x = Above_Median, y = Lot_Area)) + geom_boxplot(aes(fill = Above_Median)) + theme_bw()+geom_jitter(alpha = 0.1)
+p3 = ggplot(ames_student, aes(x = Above_Median, y = Year_Built)) + geom_boxplot(aes(fill = Above_Median)) + theme_bw()+geom_jitter(alpha = 0.1)
+p4 = ggplot(ames_student, aes(x = Above_Median, y = Year_Remod_Add))  + geom_boxplot(aes(fill = Above_Median)) + theme_bw()+geom_jitter(alpha = 0.1)
+grid.arrange(p1,p2,p3,p4)
+```
+
+```{r}
+p1 = ggplot(ames_student, aes(x = Above_Median, y = Mas_Vnr_Area)) + geom_boxplot(aes(fill = Above_Median)) + theme_bw() +geom_jitter(alpha = 0.1)
+p2 = ggplot(ames_student, aes(x = Above_Median, y = BsmtFin_SF_1))  + geom_boxplot(aes(fill = Above_Median)) + theme_bw()+geom_jitter(alpha = 0.1)
+p3 = ggplot(ames_student, aes(x = Above_Median, y = BsmtFin_SF_2)) + geom_boxplot(aes(fill = Above_Median)) + theme_bw()+geom_jitter(alpha = 0.1)
+p4 = ggplot(ames_student, aes(x = Above_Median, y = Bsmt_Unf_SF)) + geom_boxplot(aes(fill = Above_Median)) + theme_bw()+geom_jitter(alpha = 0.1)
+grid.arrange(p1,p2,p3,p4)
+```
+```{r}
+p1 = ggplot(ames_student, aes(x = Above_Median, y = Total_Bsmt_SF)) + geom_boxplot(aes(fill = Above_Median)) + theme_bw()+geom_jitter(alpha = 0.1)
+p2 = ggplot(ames_student, aes(x = Above_Median, y = First_Flr_SF))  + geom_boxplot(aes(fill = Above_Median)) + theme_bw()+geom_jitter(alpha = 0.1)
+p3 = ggplot(ames_student, aes(x = Above_Median, y = Second_Flr_SF)) + geom_boxplot(aes(fill = Above_Median)) + theme_bw()+geom_jitter(alpha = 0.1)
+p4 = ggplot(ames_student, aes(x = Above_Median, y = Low_Qual_Fin_SF)) + geom_boxplot(aes(fill = Above_Median)) + theme_bw()+geom_jitter(alpha = 0.1)
+grid.arrange(p1,p2,p3,p4)
+```
+
+```{r}
+p1 = ggplot(ames_student, aes(x = Above_Median, y = Gr_Liv_Area)) + geom_boxplot(aes(fill = Above_Median)) + theme_bw()+geom_jitter(alpha = 0.1)
+p2 = ggplot(ames_student, aes(x = Above_Median, y = Bsmt_Full_Bath))  + geom_boxplot(aes(fill = Above_Median)) + theme_bw()+geom_jitter(alpha = 0.1)
+p3 = ggplot(ames_student, aes(x = Above_Median, y = Half_Bath)) + geom_boxplot(aes(fill = Above_Median)) + theme_bw()+geom_jitter(alpha = 0.1)
+p4 = ggplot(ames_student, aes(x = Above_Median, y = Bedroom_AbvGr)) + geom_boxplot(aes(fill = Above_Median)) + theme_bw()+geom_jitter(alpha = 0.1)
+grid.arrange(p1,p2,p3,p4)
+```
+```{r}
+p1 = ggplot(ames_student, aes(x = Above_Median, y = Kitchen_AbvGr)) + geom_boxplot(aes(fill = Above_Median)) + theme_bw()+geom_jitter(alpha = 0.1)
+p2 = ggplot(ames_student, aes(x = Above_Median, y = TotRms_AbvGrd))  + geom_boxplot(aes(fill = Above_Median)) + theme_bw()+geom_jitter(alpha = 0.1)
+p3 = ggplot(ames_student, aes(x = Above_Median, y = Fireplaces)) + geom_boxplot(aes(fill = Above_Median)) + theme_bw()+geom_jitter(alpha = 0.1)
+p4 = ggplot(ames_student, aes(x = Above_Median, y = Garage_Cars)) + geom_boxplot(aes(fill = Above_Median)) + theme_bw()+geom_jitter(alpha = 0.1)
+grid.arrange(p1,p2,p3,p4)
+```
+```{r}
+p1 = ggplot(ames_student, aes(x = Above_Median, y = Garage_Area)) + geom_boxplot(aes(fill = Above_Median)) + theme_bw()+geom_jitter(alpha = 0.1)
+p2 = ggplot(ames_student, aes(x = Above_Median, y = Wood_Deck_SF))  + geom_boxplot(aes(fill = Above_Median)) + theme_bw()+geom_jitter(alpha = 0.1)
+p3 = ggplot(ames_student, aes(x = Above_Median, y = Open_Porch_SF)) + geom_boxplot(aes(fill = Above_Median)) + theme_bw()+geom_jitter(alpha = 0.1)
+p4 = ggplot(ames_student, aes(x = Above_Median, y = Enclosed_Porch)) + geom_boxplot(aes(fill = Above_Median)) + theme_bw()+geom_jitter(alpha = 0.1)
+grid.arrange(p1,p2,p3,p4)
+```
+
+```{r}
+p1 = ggplot(ames_student, aes(x = Above_Median, y = Three_season_porch)) + geom_boxplot(aes(fill = Above_Median)) + theme_bw()+geom_jitter(alpha = 0.1)
+p2 = ggplot(ames_student, aes(x = Above_Median, y = Screen_Porch))  + geom_boxplot(aes(fill = Above_Median)) + theme_bw()+geom_jitter(alpha = 0.1)
+p3 = ggplot(ames_student, aes(x = Above_Median, y = Pool_Area)) + geom_boxplot(aes(fill = Above_Median)) + theme_bw()+geom_jitter(alpha = 0.1)
+p4 = ggplot(ames_student, aes(x = Above_Median, y = Misc_Val)) + geom_boxplot(aes(fill = Above_Median)) + theme_bw()+geom_jitter(alpha = 0.1)
+grid.arrange(p1,p2,p3,p4)
+```
+
+
+```{r}
+p1 = ggplot(ames_student, aes(x = Above_Median, y = Mo_Sold)) + geom_boxplot(aes(fill = Above_Median)) + theme_bw()+geom_jitter(alpha = 0.1)
+p2 = ggplot(ames_student, aes(x = Above_Median, y = Year_Sold))  + geom_boxplot(aes(fill = Above_Median)) + theme_bw()+geom_jitter(alpha = 0.1)
+p3 = ggplot(ames_student, aes(x = Above_Median, y = Longitude)) + geom_boxplot(aes(fill = Above_Median)) + theme_bw()+geom_jitter(alpha = 0.1)
+p4 = ggplot(ames_student, aes(x = Above_Median, y = Latitude)) + geom_boxplot(aes(fill = Above_Median)) + theme_bw()+geom_jitter(alpha = 0.1)
+grid.arrange(p1,p2,p3,p4)
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

@@ -1,0 +1,87 @@
+---
+output:
+  word_document: default
+  html_document: default
+---
+# Model Validation
+## Katherine Schumann
+### Mod 3 Assignment 1
+
+
+```{r Libraries}
+library(tidyverse) #tidyverse set of packages and functions
+library(tidymodels)
+library(lubridate)
+```
+
+```{r}
+bike_cleaned <- read_csv("C:/Users/kathe/OneDrive/Desktop/Ban 502/Module 3/bike_cleaned.csv", 
+    col_types = cols(dteday = col_datetime(format = "%m/%d/%Y %H:%M")))
+bike = bike_cleaned
+```
+```{r}
+#bike = bike %>% mutate(dteday = mdy(dteday))#mdy is a lubridate package function
+bike = bike%>% mutate(season = as_factor(season))#mdy is a lubridate package function
+bike = bike%>% mutate(mnth = as_factor(mnth))#mdy is a lubridate package function
+bike = bike%>% mutate(holiday = as_factor(holiday))#mdy is a lubridate package function
+bike = bike%>% mutate(weekday = as_factor(weekday))#mdy is a lubridate package function
+bike = bike%>% mutate(workingday = as_factor(workingday))#mdy is a lubridate package function
+bike = bike%>% mutate(weathersit = as_factor(weathersit))#mdy is a lubridate package function
+
+bike = bike %>% mutate(hr = as_factor(hr))
+```
+
+### Task 1
+
+Split  
+```{r}
+set.seed(1234)
+bike_split = initial_split(bike, prob = 0.80, strata = count)
+train = training(bike_split)
+test = testing(bike_split)
+```
+
+### Task 2
+There are 13036 rows of data in the training set and 4343 rows of data in the test set. 
+
+### Task 3
+
+```{r}
+bike_recipe = recipe(count ~ season + mnth + hr + holiday + weekday + temp + weathersit, train)
+
+lm_model = #give the model type a name 
+  linear_reg() %>% #specify that we are doing linear regression
+  set_engine("lm") #specify the specify type of linear tool we want to use 
+
+lm_wflow = 
+  workflow() %>% 
+  add_model(lm_model) %>% 
+  add_recipe(bike_recipe)
+
+lm_fit = fit(lm_wflow, train)
+```
+
+```{r}
+summary(lm_fit$fit$fit$fit)
+```
+
+Adjusted R square is 0.6219. 
+
+
+```{r}
+predict_train = predict(lm_fit,train)
+```
+
+```{r Histogram of Predictions}
+ggplot(predict_train, aes(.pred))+
+  geom_boxplot()
+```
+The above distribution looks normal with a mean of just under two hundered. The only issue is that it goes into negitive numbers for the .pred, which is in probable so I would use common sense and know that there was not negitive bike rides if I were to present this data.
+
+
+```{r}
+lm_fit %>% predict(test) %>% bind_cols(test) %>% metrics(truth = count, estimate = .pred)
+```
+
+The value of the R squard went up slightly but is pretty similar, like in the other videos I would say that due to the smaller size in data there is a chance for the r squared value to fluxuate slightly. 
+

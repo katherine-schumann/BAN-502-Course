@@ -1,0 +1,253 @@
+
+# Module 4 Assignment 2
+## Katherine Schumann
+### Random Forrest
+
+```{r, include = FALSE}
+library(tidyverse)
+library(tidymodels)
+library(mice) #package for imputation
+library(VIM) #visualizing missingness
+library(ranger) #for random forests
+library(randomForest) #also for random forests
+library(caret)
+library(skimr)
+library(GGally)
+library(gridExtra)
+library(vip) #variable importance
+```
+
+
+```{r}
+drug = read_csv("drug_data-1.csv")
+
+names(drug) = c("ID", "Age", "Gender", "Education", "Country", "Ethnicity",
+"Nscore", "Escore", "Oscore", "Ascore", "Cscore", "Impulsive",
+"SS", "Alcohol", "Amphet", "Amyl", "Benzos", "Caff", "Cannabis",
+"Choc", "Coke", "Crack", "Ecstasy", "Heroin", "Ketamine", "Legalh",
+"LSD", "Meth", "Mushrooms", "Nicotine", "Semer", "VSA")
+str(drug)
+
+
+```
+
+```{r}
+drug[drug == "CL0"] = "No"
+drug[drug == "CL1"] = "No"
+drug[drug == "CL2"] = "Yes"
+drug[drug == "CL3"] = "Yes"
+drug[drug == "CL4"] = "Yes"
+drug[drug == "CL5"] = "Yes"
+drug[drug == "CL6"] = "Yes"
+
+```
+
+
+```{r}
+drug_clean = drug %>% mutate_at(vars(Age:Ethnicity), funs(as_factor)) %>%
+mutate(Age = factor(Age, labels = c("18_24", "25_34", "35_44",
+"45_54", "55_64", "65_"))) %>%
+mutate(Gender = factor(Gender, labels = c("Male", "Female"))) %>%
+mutate(Education = factor(Education, labels =
+c("Under16", "At16", "At17", "At18", "SomeCollege",
+"ProfessionalCert", "Bachelors", "Masters", "Doctorate"))) %>%
+mutate(Country = factor(Country,
+labels = c("USA", "NewZealand", "Other", "Australia",
+"Ireland","Canada","UK"))) %>%
+mutate(Ethnicity = factor(Ethnicity,
+labels = c("Black", "Asian", "White", "White/Black", "Other",
+"White/Asian", "Black/Asian"))) %>%
+mutate_at(vars(Alcohol:VSA), funs(as_factor)) %>%
+select(-ID)
+
+```
+```{r}
+str(drug_clean)
+```
+```{r}
+drug_clean = drug_clean %>% select(!(Alcohol:Mushrooms)) %>% select(!(Semer:VSA))
+names(drug_clean)
+```
+
+### Task 1
+```{r Missingness}
+skim(drug_clean)
+```
+
+There is no missingness in the data set. 
+
+### Task 2
+```{r Test and Train}
+set.seed(1234) 
+drug_split = initial_split(drug_clean, prop = 0.7, strata = Nicotine) #70% in training
+train = training(drug_split)
+test = testing(drug_split)
+```
+
+
+### Task 3
+
+Visualization  
+```{r}
+p1 = ggplot(train, aes(x = Age, fill = Nicotine)) + geom_bar(position = "fill")
+p2 = ggplot(train, aes(x = Gender, fill = Nicotine)) + geom_bar(position = "fill")
+p3 = ggplot(train, aes(x = Education, fill = Nicotine)) + geom_bar(position = "fill")
+p4 = ggplot(train, aes(x = Country, fill = Nicotine)) + geom_bar(position = "fill")
+grid.arrange(p1,p2,p3,p4)
+```
+
+
+```{r}
+p5 = ggplot(train, aes(x = Ethnicity, fill = Nicotine)) + geom_bar(position = "fill")
+p5
+```
+
+
+
+
+```{r}
+p1 = ggplot(train, aes(x = Nicotine, y = Nscore)) + geom_boxplot()
+p2 = ggplot(train, aes(x = Nicotine, y = Escore)) + geom_boxplot()
+p3 = ggplot(train, aes(x = Nicotine, y = Oscore)) + geom_boxplot()
+p4 = ggplot(train, aes(x = Nicotine, y = Ascore)) + geom_boxplot()
+grid.arrange(p1,p2,p3,p4)
+```
+
+```{r}
+p1 = ggplot(train, aes(x = Nicotine, y = Cscore)) + geom_boxplot()
+p2 = ggplot(train, aes(x = Nicotine, y = Impulsive)) + geom_boxplot()
+p3 = ggplot(train, aes(x = Nicotine, y = SS)) + geom_boxplot()
+
+grid.arrange(p1,p2,p3, ncol=2)
+```
+The age showed the largest relationship between nicotine and age. The Gender, country, education, and ethnicity; also tended to show a relationship between nicotine but it was not as previlant as age. Nscore, Eschore, Oscore, and Ascore tended to have a similar mean and were not too far apart from using or not using nicotine. Cscore did tend to show closer quartiles and a bit of a higher schore for not users. Impulsive due to the yes having a wide range did not tend to give the impression of relivance. The SS did have a significant jump from no to yes. I would say that SS, Cscore, and age are some of the biggest predictors. 
+
+### Task 4
+
+Set up our folds for cross-validation  
+```{r}
+set.seed(123)
+rf_folds = vfold_cv(train, v = 5)
+```
+
+Random forest with an R-defined tuning grid (this model took about 5 minutes to run)
+```{r}
+drug_recipe = recipe(Nicotine ~., train) %>%
+  step_dummy(all_nominal(), -all_outcomes())
+
+rf_model = rand_forest(mtry = tune(), min_n = tune(), trees = 100) %>% #add tuning of mtry and min_n parameters
+  #setting trees to 100 here should also speed things up a bit, but more trees might be better
+  set_engine("ranger", importance = "permutation") %>% #added importance metric
+  set_mode("classification")
+
+drug_wflow = 
+  workflow() %>% 
+  add_model(rf_model) %>% 
+  add_recipe(drug_recipe)
+
+rf_grid = grid_regular(
+  mtry(range = c(2, 8)), #these values determined through significant trial and error
+  min_n(range = c(5, 20)), #these values determined through significant trial and error
+  levels = 10
+)
+
+set.seed(123)
+rf_res = tune_grid(
+  drug_wflow,
+  resamples = rf_folds,
+  grid = 20 #try 20 different combinations of the random forest tuning parameters
+)
+```
+
+Look at parameter performance (borrowed from https://juliasilge.com/blog/sf-trees-random-tuning/)
+```{r}
+rf_res %>%
+  collect_metrics() %>%
+  filter(.metric == "accuracy") %>%
+  select(mean, min_n, mtry) %>%
+  pivot_longer(min_n:mtry,
+    values_to = "value",
+    names_to = "parameter"
+  ) %>%
+  ggplot(aes(value, mean, color = parameter)) +
+  geom_point(show.legend = FALSE) +
+  facet_wrap(~parameter, scales = "free_x") +
+  labs(x = NULL, y = "Accuracy")
+```
+```{r}
+rf_res %>%
+  collect_metrics() %>%
+  filter(.metric == "accuracy") %>%
+  mutate(min_n = factor(min_n)) %>%
+  ggplot(aes(mtry, mean, color = min_n)) +
+  geom_line(alpha = 0.5, size = 1.5) +
+  geom_point() +
+  labs(y = "Accuracy")
+```
+
+
+
+
+### Task 5
+
+```{r}
+best_rf = select_best(rf_res, "accuracy")
+
+final_rf = finalize_workflow(
+  drug_wflow,
+  best_rf
+)
+
+final_rf
+```
+
+```{r}
+#fit the finalized workflow to our training data
+final_rf_fit = fit(final_rf, train)
+```
+
+Check out variable importance
+```{r}
+final_rf_fit %>% pull_workflow_fit() %>% vip(geom = "point")
+```
+The Sensation Seeing score is the most important and then the country UK and Openness to experience Score. It is suprising that the age is not up there as well. 
+
+### Task 6
+
+Predictions  
+```{r}
+trainpredrf = predict(final_rf_fit, train)
+head(trainpredrf)
+```
+
+Confusion matrix
+```{r}
+confusionMatrix(trainpredrf$.pred_class, train$Nicotine, 
+                positive = "Yes")
+```
+
+
+Predictions on test
+```{r}
+testpredrf = predict(final_rf_fit, test)
+head(testpredrf)
+```
+
+```{r}
+confusionMatrix(testpredrf$.pred_class, test$Nicotine, 
+                positive = "Yes")
+```
+
+
+The model did really well on the train set, it had an accuracy of 80.73% with a low p-value, less than .001, and a naive model of 67.05. However, the model did not perform well on the test set. It is still better than the naive model but by only 2%, with a p-value of 1%, which means the findings are still significant but it is not nearly as good as with the train set.
+
+### Task 7
+
+This model could be used in the real world in order to determine who the nicotine should market towards. Or in who physicians should be warning about the health risks of smoking. I would recommending using this model, but I would attempt to expand the forrest to see if we could find better results on the test set. I would be concerned that there would be a false positive rate. (we can see in the confusion matrix that the prediction is yes but the reference is no and that is 123 which is double the correct amount of no samples) so that would have to be monitored and understood prior to using the model.
+
+
+
+
+
+
+

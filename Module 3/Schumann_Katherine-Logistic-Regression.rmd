@@ -1,0 +1,392 @@
+---
+output:
+  word_document: default
+  html_document: default
+---
+# Model Validation
+## Katherine Schumann
+### Mod 3 Assignment 1
+  
+```{r Libraries}
+library(tidyverse)
+library(tidymodels)
+library(e1071) #often needed for various statistical tasks
+library(ROCR) #for threshold selction
+```
+
+```{r}
+parole <- read_csv("C:/Users/kathe/OneDrive/Desktop/Ban 502/Module 3/parole.csv")
+```
+```{r}
+
+parole = parole%>% mutate(male = as_factor(male))%>% mutate(male = fct_recode(male, "Male" = "1", "Female" = "0"))
+
+
+parole = parole%>% mutate(race = as_factor(race))%>% mutate(race = fct_recode(race, "White" = "1", "Other" = "2"))
+
+parole = parole%>% mutate(state = as_factor(state))%>% mutate(state = fct_recode(state, "Other" = "1", "Kentucky" = "2", "Louisiana" = "3", "Virginia" = "4"))
+
+parole = parole%>% mutate(multiple.offenses = as_factor(multiple.offenses)) %>% mutate(multiple.offenses = fct_recode(multiple.offenses, "Yes" = "1", "No" = "0"))
+
+parole = parole%>% mutate(crime = as_factor(crime)) %>% mutate(crime = fct_recode(crime, "Other" = "1", "Larceny" = "2", "Drug-related" = "3", "Driving-related" = "4"))
+
+parole = parole %>% mutate(violator = as.character.numeric_version(violator)) %>% mutate(violator = fct_recode(violator, "Yes" = "1", "No" = "0"))
+
+```
+
+
+
+```{r}
+summary(parole)
+```
+
+### Task 1
+Split  
+```{r}
+set.seed(12345)
+parole_split = initial_split(parole, prob = 0.70, strata = violator)
+train = training(parole_split)
+test = testing(parole_split)
+```
+
+### Task 2
+
+```{r}
+
+ggplot(train, aes(x=male, fill = violator)) + geom_bar() + theme_bw()
+```
+```{r}
+
+ggplot(train, aes(x=race, fill = violator)) + geom_bar() + theme_bw()
+```
+
+
+```{r}
+
+ggplot(train, aes(x=state, fill = violator)) + geom_bar() + theme_bw()
+```
+```{r}
+
+ggplot(train, aes(x=multiple.offenses, fill = violator)) + geom_bar() + theme_bw()
+```
+
+
+```{r}
+
+ggplot(train, aes(x=crime, fill = violator)) + geom_bar() + theme_bw()
+```
+
+```{r}
+ggplot(train,aes(x=violator, y=time.served)) + geom_boxplot()
+```
+
+```{r}
+ggplot(train,aes(x=violator, y=max.sentence)) + geom_boxplot()
+```
+```{r}
+ggplot(train,aes(x=violator, y=age)) + geom_boxplot()
+```
+After observing the variables above I would suggest that age seems to be a pretty good predictor variable and so does state specifically for the state of Louisiana. 
+
+### Task 3
+
+```{r}
+trainage_model = 
+  logistic_reg() %>% #note the use of logistic_reg
+  set_engine("glm") #standard logistic regression engine is glm
+
+trainage_recipe = recipe(violator ~ age, train) %>%
+  step_dummy(all_nominal(), -all_outcomes()) #exclude the response variable from being dummy converted  
+
+logreg_wf = workflow() %>%
+  add_recipe(trainage_recipe) %>% 
+  add_model(trainage_model)
+
+trainage_fit = fit(logreg_wf, train)
+```
+
+```{r}
+summary(trainage_fit$fit$fit$fit)
+```
+
+```{r}
+trainstate_model = 
+  logistic_reg() %>% #note the use of logistic_reg
+  set_engine("glm") #standard logistic regression engine is glm
+
+trainstate_recipe = recipe(violator ~ state, train) %>%
+  step_dummy(all_nominal(), -all_outcomes()) #exclude the response variable from being dummy converted  
+
+logreg_wf = workflow() %>%
+  add_recipe(trainstate_recipe) %>% 
+  add_model(trainstate_model)
+
+trainstate_fit = fit(logreg_wf, train)
+```
+
+```{r}
+summary(trainstate_fit$fit$fit$fit)
+```
+
+
+
+State demonstrates to be a good fit according to the AIC value. I thought that the graphs demonstrated the biggest jump with state and age so I modeled those two, I think that state is a very good predictive model. 
+
+### Task 4 
+
+
+```{r}
+trainrace_model = 
+  logistic_reg() %>% #note the use of logistic_reg
+  set_engine("glm") #standard logistic regression engine is glm
+
+trainrace_recipe = recipe(violator ~ race, train) %>%
+  step_dummy(all_nominal(), -all_outcomes()) #exclude the response variable from being dummy converted  
+
+logreg_wf = workflow() %>%
+  add_recipe(trainrace_recipe) %>% 
+  add_model(trainrace_model)
+
+trainrace_fit = fit(logreg_wf, train)
+```
+
+```{r}
+summary(trainrace_fit$fit$fit$fit)
+```
+```{r}
+trainmale_model = 
+  logistic_reg() %>% #note the use of logistic_reg
+  set_engine("glm") #standard logistic regression engine is glm
+
+trainmale_recipe = recipe(violator ~ male, train) %>%
+  step_dummy(all_nominal(), -all_outcomes()) #exclude the response variable from being dummy converted  
+
+logreg_wf = workflow() %>%
+  add_recipe(trainmale_recipe) %>% 
+  add_model(trainmale_model)
+
+trainmale_fit = fit(logreg_wf, train)
+```
+
+```{r}
+summary(trainmale_fit$fit$fit$fit)
+```
+
+
+```{r}
+traintimeserved_model = 
+  logistic_reg() %>% #note the use of logistic_reg
+  set_engine("glm") #standard logistic regression engine is glm
+
+traintimeserved_recipe = recipe(violator ~ time.served, train) %>%
+  step_dummy(all_nominal(), -all_outcomes()) #exclude the response variable from being dummy converted  
+
+logreg_wf = workflow() %>%
+  add_recipe(traintimeserved_recipe) %>% 
+  add_model(traintimeserved_model)
+
+traintimeserved_fit = fit(logreg_wf, train)
+```
+
+```{r}
+summary(traintimeserved_fit$fit$fit$fit)
+```
+
+```{r}
+trainmax_model = 
+  logistic_reg() %>% #note the use of logistic_reg
+  set_engine("glm") #standard logistic regression engine is glm
+
+trainmax_recipe = recipe(violator ~ max.sentence, train) %>%
+  step_dummy(all_nominal(), -all_outcomes()) #exclude the response variable from being dummy converted  
+
+logreg_wf = workflow() %>%
+  add_recipe(trainmax_recipe) %>% 
+  add_model(trainmax_model)
+
+traimax_fit = fit(logreg_wf, train)
+```
+
+```{r}
+summary(traimax_fit$fit$fit$fit)
+```
+
+```{r}
+trainmulti_model = 
+  logistic_reg() %>% #note the use of logistic_reg
+  set_engine("glm") #standard logistic regression engine is glm
+
+trainmulti_recipe = recipe(violator ~ multiple.offenses, train) %>%
+  step_dummy(all_nominal(), -all_outcomes()) #exclude the response variable from being dummy converted  
+
+logreg_wf = workflow() %>%
+  add_recipe(trainmulti_recipe) %>% 
+  add_model(trainmulti_model)
+
+trainmulti_fit = fit(logreg_wf, train)
+```
+
+```{r}
+summary(trainmulti_fit$fit$fit$fit)
+```
+
+```{r}
+traincrime_model = 
+  logistic_reg() %>% #note the use of logistic_reg
+  set_engine("glm") #standard logistic regression engine is glm
+
+traincrime_recipe = recipe(violator ~ crime, train) %>%
+  step_dummy(all_nominal(), -all_outcomes()) #exclude the response variable from being dummy converted  
+
+logreg_wf = workflow() %>%
+  add_recipe(traincrime_recipe) %>% 
+  add_model(traincrime_model)
+
+traincrime_fit = fit(logreg_wf, train)
+```
+
+```{r}
+summary(traincrime_fit$fit$fit$fit)
+```
+The lowest AIC value comes from the state model,  for the state of Virginia and Louisiana they are both significant variables. The other significant variable comes from the multiple offenses category. The quality of the state model is fairly good with an AIC value of 314.65. This model is not quite what I expected, I expected Louisiana to have a higher significance over Virginia.
+
+### Task 5
+
+
+```{r}
+train5_model = 
+  logistic_reg() %>% #note the use of logistic_reg
+  set_engine("glm") #standard logistic regression engine is glm
+
+train5_recipe = recipe(violator ~ state + multiple.offenses + race, train) %>%
+  step_dummy(all_nominal(), -all_outcomes()) #exclude the response variable from being dummy converted  
+
+logreg_wf = workflow() %>%
+  add_recipe(train5_recipe) %>% 
+  add_model(train5_model)
+
+train5_fit = fit(logreg_wf, train)
+```
+
+```{r}
+summary(train5_fit$fit$fit$fit)
+```
+The quality of this model is better than just the state model according to the AIC value since it is lower. The State (particularly Virginia) and the multiple offenses are both significant variables. 
+
+
+### Task 6
+
+```{r}
+Parolee1 = data.frame(state = "Louisiana", multiple.offenses = "Yes", race = "White")
+predict(train5_fit, Parolee1, type="prob")
+
+Parolee2 = data.frame(state = "Kentucky", multiple.offenses = "No", race = "Other")
+predict(train5_fit, Parolee2, type="prob")
+```
+
+The predicted probability of parole violation for Parolee 1 is 41.24% and the predicted probability of parole violation for Parolee 2 is 13.9.5%.
+
+### Task 7
+
+
+Develop predictions  
+```{r}
+predictions = predict(train5_fit, train, type="prob") #develop predicted probabilities
+head(predictions)
+```
+ 
+```{r}
+predictions = predict(train5_fit, train, type="prob")[2]
+head(predictions)
+```
+
+Threshold selection  
+```{r}
+#Change this next line to the names of your predictions and the response variable in the training data frame
+ROCRpred = prediction(predictions, train$violator)
+
+###You shouldn't need to ever change the next two lines:
+ROCRperf = performance(ROCRpred, "tpr", "fpr")
+plot(ROCRperf, colorize=TRUE, print.cutoffs.at=seq(0,1,by=0.1), text.adj=c(-0.2,1.7))
+```
+ 
+```{r}
+as.numeric(performance(ROCRpred, "auc")@y.values)
+```
+
+### Task 8
+
+```{r}
+#Determine threshold to balance sensitivity and specificity
+#DO NOT modify this code
+opt.cut = function(perf, pred){
+    cut.ind = mapply(FUN=function(x, y, p){
+        d = (x - 0)^2 + (y-1)^2
+        ind = which(d == min(d))
+        c(sensitivity = y[[ind]], specificity = 1-x[[ind]], 
+            cutoff = p[[ind]])
+    }, perf@x.values, perf@y.values, pred@cutoffs)
+}
+print(opt.cut(ROCRperf, ROCRpred))
+```
+
+Test thresholds to evaluate accuracy  
+```{r}
+#confusion matrix
+#The "No" and "Yes" represent the actual values
+#The "FALSE" and "TRUE" represent our predicted values
+t1 = table(train$violator,predictions > 0.1371209)
+t1
+```
+
+Calculate accuracy  
+```{r}
+(t1[1,1]+t1[2,2])/nrow(train)
+```
+Sensitivity
+```{r}
+39/(20+39)
+```
+
+Specificity
+```{r}
+374/(374+74)
+```
+
+The implications of incorrectly classifying a parolee would potentially mean that if we are trying to find a bail average we may state that they should stay in the jail rather than get parole.
+
+### Task 9
+Threshold = 0.6  
+```{r}
+t1 = table(train$violator,predictions > 0.5)
+t1
+(t1[1,1]+t1[2,2])/nrow(train)
+```
+I think that this is the highest accuracy that we can get with the training set. 
+
+### Task 10
+```{r}
+predictions = predict(train5_fit, test, type="prob") #develop predicted probabilities
+head(predictions)
+```
+ 
+```{r extract yes prodictions}
+predictions = predict(train5_fit, test, type="prob")[2]
+head(predictions)
+```
+
+Test thresholds to evaluate accuracy  
+```{r}
+#confusion matrix
+#The "No" and "Yes" represent the actual values
+#The "FALSE" and "TRUE" represent our predicted values
+t1 = table(test$violator,predictions > 0.5)
+t1
+(t1[1,1]+t1[2,2])/nrow(test)
+```
+That actually has a very high accuracy rate. 
+
+
+
+
+
